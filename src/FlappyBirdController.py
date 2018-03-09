@@ -10,6 +10,7 @@ import win32gui
 from pywinauto.application import  Application
 from pywinauto.keyboard import SendKeys
 from pywinauto.controls.hwndwrapper import HwndWrapper
+from mss import mss
 
 
 def launch_flappy(folder='../FlappyBirdClone/', filename = 'flappy.py', timeout=2):
@@ -109,25 +110,34 @@ def main():
 
     # Play game and grab screen
     x_start, y_start, x_end, y_end = get_window_coordinates(app)
+    coordinates = {'top':y_start,
+                   'left': x_start,
+                   'height': y_end-y_start,
+                   'width': x_end-x_start
+                   }
     images = []
-    for i in range(20):
+    sct = mss()
+    for i in range(10):
         press_space()
-        im = ImageGrab.grab(bbox=(x_start, y_start, x_end, y_end))
+        sct_img = sct.grab(coordinates)
+        im = Image.frombytes('RGB', sct_img.size, sct_img.rgb)
+        # im = ImageGrab.grab(bbox=(x_start, y_start, x_end, y_end))
         arr = process_image(im)
         images.append(arr)
-        time.sleep(1.0/FPS)
+        time.sleep(0.5)
 
     kill_app(app)
 
-    folder = '../screendumps/'
-    for image in images:
-        dumpto = folder + 'screen_capture_' + str(i) + '.jpg'
-        image.save(dumpto, "JPEG")
-        i += 1
-
-    # print(type(images))
+    # folder = '../screendumps/'
     # for image in images:
-    #     Image.fromarray(image)
+    #     dumpto = folder + 'screen_capture_' + str(i) + '.jpg'
+    #     image.save(dumpto, "JPEG")
+    #     i += 1
+
+    print(type(images))
+    for image in images:
+        img = Image.fromarray(image)
+        # img.show()
 
 
 if __name__ == "__main__":
