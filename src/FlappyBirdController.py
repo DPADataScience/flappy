@@ -103,6 +103,30 @@ def process_image(image):
     return processed_img
 
 
+def stream_app(coordinates, frames=3, fps=30):
+    """"
+    Streams the coordinates of the screen per number of frames as specified
+
+    :param coordinates: dict the coordinates to pass to stream
+    :param frames: int the number of frames to stack
+    :param fps: int the framerate of the stream
+    :return stacked: numpy.array the images stacked onto each other
+    """
+    framerate = 1.0/fps
+
+    images = []
+    sct = mss()
+    for i in range(frames):
+        sct_img = sct.grab(coordinates)
+        im = Image.frombytes('RGB', sct_img.size, sct_img.rgb)
+        processed_img = process_image(im)
+        images.append(processed_img)
+        time.sleep(framerate)
+
+    stacked = np.dstack(images)
+    return stacked
+
+
 def main():
     FPS = 30
     launch_flappy()
@@ -115,29 +139,19 @@ def main():
                    'height': y_end-y_start,
                    'width': x_end-x_start
                    }
-    images = []
-    sct = mss()
-    for i in range(10):
+
+    t_end = time.time() + 5
+    while time.time() < t_end:
         press_space()
-        sct_img = sct.grab(coordinates)
-        im = Image.frombytes('RGB', sct_img.size, sct_img.rgb)
-        # im = ImageGrab.grab(bbox=(x_start, y_start, x_end, y_end))
-        arr = process_image(im)
-        images.append(arr)
+        stream = stream_app(coordinates=coordinates, fps=10)
         time.sleep(0.5)
+
+
 
     kill_app(app)
 
-    # folder = '../screendumps/'
-    # for image in images:
-    #     dumpto = folder + 'screen_capture_' + str(i) + '.jpg'
-    #     image.save(dumpto, "JPEG")
-    #     i += 1
 
-    print(type(images))
-    for image in images:
-        img = Image.fromarray(image)
-        # img.show()
+
 
 
 if __name__ == "__main__":
