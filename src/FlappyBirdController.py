@@ -150,7 +150,15 @@ def main():
     kill_app(app)
 
 
+def inititialise_random_nn():
 
+
+
+def get_random_dense_layer():
+    return Dense()
+
+def get_random_conv_layer():
+    return Conv2D()
 
 
 if __name__ == "__main__":
