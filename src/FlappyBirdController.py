@@ -119,7 +119,8 @@ def stream_app(coordinates, frames=3, fps=30):
     for i in range(frames):
         sct_img = sct.grab(coordinates)
         im = Image.frombytes('RGB', sct_img.size, sct_img.rgb)
-        processed_img = process_image(im)
+        # processed_img = process_image(im)
+        processed_img = im
         images.append(processed_img)
         time.sleep(framerate)
 
@@ -140,13 +141,11 @@ def main():
                    'width': x_end-x_start
                    }
 
-    t_end = time.time() + 5
+    t_end = time.time() + 15
     while time.time() < t_end:
         press_space()
         stream = stream_app(coordinates=coordinates, fps=10)
-        time.sleep(0.5)
-
-
+        time.sleep(0.2)
 
     kill_app(app)
 
