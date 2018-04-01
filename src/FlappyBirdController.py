@@ -11,6 +11,7 @@ from pywinauto.application import  Application
 from pywinauto.keyboard import SendKeys
 from pywinauto.controls.hwndwrapper import HwndWrapper
 from mss import mss
+from io import BytesIO, StringIO
 
 
 def launch_flappy(folder='../FlappyBirdClone/', filename = 'flappy.py', timeout=2):
@@ -103,12 +104,16 @@ def process_image(image):
     return processed_img
 
 
-def stream_app(coordinates, frames=3, fps=30):
+def is_game_over(frame):
+    pass
+
+
+def stream_app(coordinates, nr_frames=1, fps=30):
     """"
     Streams the coordinates of the screen per number of frames as specified
 
     :param coordinates: dict the coordinates to pass to stream
-    :param frames: int the number of frames to stack
+    :param nr_frames: int the number of frames to stack
     :param fps: int the framerate of the stream
     :return stacked: numpy.array the images stacked onto each other
     """
@@ -116,12 +121,11 @@ def stream_app(coordinates, frames=3, fps=30):
 
     images = []
     sct = mss()
-    for i in range(frames):
+    for i in range(nr_frames):
         sct_img = sct.grab(coordinates)
         im = Image.frombytes('RGB', sct_img.size, sct_img.rgb)
-        # processed_img = process_image(im)
-        processed_img = im
-        images.append(processed_img)
+        # im = process_image(im)
+        images.append(im)
         time.sleep(framerate)
 
     stacked = np.dstack(images)
@@ -142,10 +146,29 @@ def main():
                    }
 
     t_end = time.time() + 15
+
+    stored_bytes = []
     while time.time() < t_end:
         press_space()
         stream = stream_app(coordinates=coordinates, fps=10)
+        filebuffer = BytesIO()
+        np.save(filebuffer, stream)
+        filebuffer.seek(0)
+        stored_bytes.append(filebuffer)
         time.sleep(0.2)
+
+    for i in range(len(stored_bytes)):
+        print(stored_bytes[i])
+        arr = np.load(stored_bytes[i])
+        im = Image.fromarray(arr)
+        filenam_jpg = "../screendumps/_" + str(i) + ".jpg"
+        filenam_by = "../screendumps/_" + str(i) + ".npy"
+        im.save(filenam_jpg)
+
+        file = open(filenam_by, "wb")
+        np.save(file,arr)
+        file.close()
+
 
     kill_app(app)
 
