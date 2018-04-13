@@ -1,7 +1,7 @@
 from PIL import ImageGrab, Image
 import time
 import numpy as np
-import cv2
+#import cv2
 import pandas as pd
 import os
 import subprocess
@@ -96,11 +96,11 @@ def process_image(image):
     """
     arr = convert_image_to_array(image)
     # convert to gray
-    processed_img = cv2.cvtColor(arr, cv2.COLOR_BGR2GRAY)
+    #processed_img = cv2.cvtColor(arr, cv2.COLOR_BGR2GRAY)
 
     # edge detection
-    processed_img =  cv2.Canny(processed_img, threshold1=160, threshold2=300)
-    return processed_img
+    #processed_img =  cv2.Canny(processed_img, threshold1=160, threshold2=300)
+    return arr
 
 
 def stream_app(coordinates, frames=3, fps=30):
@@ -126,6 +126,18 @@ def stream_app(coordinates, frames=3, fps=30):
     stacked = np.dstack(images)
     return stacked
 
+def reward(state):
+    if sum(sum((state[:,:,8] - state[:,:,5]))) < 10000:
+        print("flappy is dood")
+        return -10
+    elif punt_gescoord(state):
+        print("punt gescoord!")
+        return 1
+    else:
+        return 0
+
+def punt_gescoord(state):
+    return False
 
 def main():
     FPS = 30
@@ -144,7 +156,8 @@ def main():
     while time.time() < t_end:
         press_space()
         stream = stream_app(coordinates=coordinates, fps=10)
-        time.sleep(0.5)
+        r = reward(stream)
+        time.sleep(0.2)
 
 
 
