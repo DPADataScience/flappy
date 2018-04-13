@@ -12,7 +12,7 @@ from pywinauto.keyboard import SendKeys
 from pywinauto.controls.hwndwrapper import HwndWrapper
 from mss import mss
 from collections import deque
-
+from src.nn import create_model
 
 def launch_flappy(folder='../FlappyBirdClone/', filename = 'flappy.py', timeout=2):
     """"
@@ -169,6 +169,9 @@ def main():
     t_end = time.time() + 30
     framerate = 1/FPS
     #press_space()
+
+    model = create_model()
+
     while time.time() < t_end:
         start = time.time()
 
@@ -181,6 +184,8 @@ def main():
         stack.extend(stream_before) 
         current_state = np.dstack(stack)
         r = reward(current_state)
+        print(current_state.shape)
+        print(model.predict(x = current_state))
         time_to_process = time.time()-start
         if r > 0:
             print(r)
