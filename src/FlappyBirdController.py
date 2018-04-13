@@ -131,7 +131,7 @@ def stream_app(coordinates, frames=3, fps=30, stack=False):
     return stacked
 
 def reward(state):
-    if sum(sum((state[:,:,8] - state[:,:,5]))) < 10000:
+    if sum(sum((state[:,:,11] - state[:,:,8]))) < 10000:
         print("flappy is dood")
         return -10
     elif punt_gescoord(state):
@@ -141,6 +141,7 @@ def reward(state):
         return 0
 
 def punt_gescoord(state):
+    background = np.median(state[0,:,11])
     return False
 
 
