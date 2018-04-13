@@ -134,7 +134,7 @@ def stream_app(coordinates, frames=3, fps=30, stack=False):
     return images
 
 def reward(state):
-    if sum(sum((state[:,:,11] - state[:,:,8]))) < 10000:
+    if sum(sum((state[:,:,11] - state[:,:,8]))) != 0 and sum(sum((state[:,:,11] - state[:,:,8]))) < 10000 and sum(sum((state[:,:,5] - state[:,:,2]))) > 10000:
         print("flappy is dood")
         return -10
     elif punt_gescoord(state):
@@ -145,8 +145,11 @@ def reward(state):
 
 def punt_gescoord(state):
     background = np.median(state[0,:,11])
+    if any([state[0,x,11] == background for x in range(48, 92)]):
+        return False
+    elif any([state[0,x,8] == background for x in range(48, 92)]):
+        return True
     return False
-
 
 def main():
     FPS = 30
@@ -162,10 +165,10 @@ def main():
                    }
 
     stack = deque(maxlen=4)
-    t_end = time.time() + 15
+    t_end = time.time() + 10
     framerate = 1/FPS
     while time.time() < t_end:
-        press_space()
+        #press_space()
 
         start = time.time()
         if len(stack) < 4:
@@ -178,7 +181,7 @@ def main():
         arr = np.dstack(stack)
         r = reward(arr)
         time_to_process = time.time()-start
-        print(r)
+        #print(r)
         time.sleep(max(0, framerate-time_to_process))
 
     kill_app(app)
