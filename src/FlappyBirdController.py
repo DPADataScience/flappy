@@ -175,7 +175,7 @@ def main():
             stream = stream_app(coordinates=coordinates, frames=4, fps=FPS, stack=True)
 
         else:
-            stream = stream_app(coordinates=coordinates, frames=1, fps=FPS, stack=False )
+            stream = stream_app(coordinates=coordinates, frames=1, fps=FPS, stack=False)
 
         stack.extend(stream)
         arr = np.dstack(stack)
