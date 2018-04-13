@@ -117,18 +117,21 @@ def stream_app(coordinates, frames=3, fps=30, stack=False):
 
     images = []
     sct = mss()
-    for i in range(frames):
+    if stack:
+        for i in range(frames):
+            sct_img = sct.grab(coordinates)
+            im = Image.frombytes('RGB', sct_img.size, sct_img.rgb)
+            # im = process_image(im)
+            # images.append(im)
+            images.append(im)
+            time.sleep(framerate)
+            # stacked = np.dstack(images)
+    else:
         sct_img = sct.grab(coordinates)
         im = Image.frombytes('RGB', sct_img.size, sct_img.rgb)
-        # processed_img = process_image(im)
-        processed_img = im
-        images.append(processed_img)
-        if stack:
-            print('waiting')
-            time.sleep(framerate)
-
-    stacked = np.dstack(images)
-    return stacked
+        images.append(im)
+    # stacked = np.dstack(images)
+    return images
 
 def reward(state):
     if sum(sum((state[:,:,8] - state[:,:,5]))) < 10000:
@@ -163,13 +166,19 @@ def main():
     while time.time() < t_end:
         press_space()
 
+        start = time.time()
         if len(stack) < 4:
             stream = stream_app(coordinates=coordinates, frames=4, fps=FPS, stack=True)
+
         else:
             stream = stream_app(coordinates=coordinates, frames=1, fps=FPS, stack=False )
+
         stack.extend(stream)
-        r = reward(stream)
-        time.sleep(framerate)
+        arr = np.dstack(stack)
+        r = reward(arr)
+        time_to_process = time.time()-start
+        print(r)
+        time.sleep(max(0, framerate-time_to_process))
 
     kill_app(app)
 
