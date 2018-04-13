@@ -11,6 +11,7 @@ from pywinauto.application import  Application
 from pywinauto.keyboard import SendKeys
 from pywinauto.controls.hwndwrapper import HwndWrapper
 from mss import mss
+from collections import deque
 
 
 def launch_flappy(folder='../FlappyBirdClone/', filename = 'flappy.py', timeout=2):
@@ -103,7 +104,7 @@ def process_image(image):
     return processed_img
 
 
-def stream_app(coordinates, frames=3, fps=30):
+def stream_app(coordinates, frames=3, fps=30, stack=False):
     """"
     Streams the coordinates of the screen per number of frames as specified
 
@@ -122,10 +123,13 @@ def stream_app(coordinates, frames=3, fps=30):
         # processed_img = process_image(im)
         processed_img = im
         images.append(processed_img)
-        time.sleep(framerate)
+        if stack:
+            print('waiting')
+            time.sleep(framerate)
 
     stacked = np.dstack(images)
     return stacked
+
 
 
 def main():
@@ -141,11 +145,17 @@ def main():
                    'width': x_end-x_start
                    }
 
+    stack = deque(maxlen=4)
     t_end = time.time() + 15
+    framerate = 1/FPS
     while time.time() < t_end:
         press_space()
-        stream = stream_app(coordinates=coordinates, fps=10)
-        time.sleep(0.2)
+        if len(stack) < 4:
+            stream = stream_app(coordinates=coordinates, frames=4, fps=FPS, stack=True)
+        else:
+            stream = stream_app(coordinates=coordinates, frames=1, fps=FPS, stack=False )
+        stack.extend(stream)
+        time.sleep(framerate)
 
     kill_app(app)
 
