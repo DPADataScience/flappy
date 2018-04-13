@@ -130,6 +130,7 @@ def stream_app(coordinates, frames=3, fps=30, stack=False):
         sct_img = sct.grab(coordinates)
         im = Image.frombytes('RGB', sct_img.size, sct_img.rgb)
         images.append(im)
+        print(np.array(im).shape)
     # stacked = np.dstack(images)
     return images
 
@@ -165,24 +166,36 @@ def main():
                    }
 
     stack = deque(maxlen=4)
-    t_end = time.time() + 10
+    t_end = time.time() + 30
     framerate = 1/FPS
+    #press_space()
     while time.time() < t_end:
-        #press_space()
-
         start = time.time()
+
         if len(stack) < 4:
-            stream = stream_app(coordinates=coordinates, frames=4, fps=FPS, stack=True)
+            stream_before = stream_app(coordinates=coordinates, frames=4, fps=FPS, stack=True)
 
         else:
-            stream = stream_app(coordinates=coordinates, frames=1, fps=FPS, stack=False )
+            stream_before = stream_app(coordinates=coordinates, frames=1, fps=FPS, stack=False )
 
-        stack.extend(stream)
-        arr = np.dstack(stack)
-        r = reward(arr)
+        stack.extend(stream_before) 
+        current_state = np.dstack(stack)
+        r = reward(current_state)
         time_to_process = time.time()-start
-        #print(r)
-        time.sleep(max(0, framerate-time_to_process))
+        if r > 0:
+            print(r)
+        time.sleep(max(0, framerate - time_to_process))
+        # time.sleep(framerate-time_to_process)
+        # do action
+        stream_after = stream_app(coordinates=coordinates, frames=1, fps=FPS, stack=False)
+        stack.extend(stream_after)
+        next_state = np.dstack(stack)
+        r = reward(next_state)
+        if r > 0:
+            print(r)
+
+
+
 
     kill_app(app)
 
