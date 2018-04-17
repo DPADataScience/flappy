@@ -118,13 +118,19 @@ def grab_frame(coordinates):
     return processed_image
 
 
-def reward(state):
-    if np.sum((state[:,:,3] - state[:,:,2])) == 0 and np.sum((state[:,:,2] - state[:,:,1])) == 0 and np.sum((state[:,:,1] - state[:,:,0])) > 10:
+def calculate_reward(state):
+    """"
+    calculate the reward of the state
+
+    :param state: four consecutive processed frames
+    :return reward: int representing the reward if a point is scored or if flappy has died.
+    """
+    if np.sum((state[:,:,3] - state[:,:,2])) == 0 and np.sum((state[:,:,2] - state[:,:,1])) == 0:# and np.sum((state[:,:,1] - state[:,:,0])) > 10:
         print("flappy is dood")
-        return -10
+        return -100
     elif sum(state[0,:50,3]) == 510 and sum(state[0,:50,2]) == 510 and sum(state[0,:50,1]) != 510 and sum(state[0,:50,0]) != 510:
         print("punt gescoord!")
-        return 1
+        return 100
     else:
         return 0
 
@@ -145,7 +151,7 @@ def main():
     t_end = time.time() + 10
     framerate = 1/FPS
 
-    # Prepare frame stack and model
+    # Prepare states, action  and model
     stack = deque(maxlen=4)
     for i in range(4):
         frame = grab_frame(coordinates)
@@ -153,31 +159,37 @@ def main():
         time.sleep(framerate)
     current_state = np.dstack(stack)
     model = create_model()
+    action = 0
 
-    while time.time() < t_end:
+    while True: # time.time() < t_end:
         start = time.time()
 
         # action
+        prediction = model.predict(x=current_state[np.newaxis, ...])[0]
+        if prediction[1] > prediction[0]:
+            action = 1
+            press_space()
+        else:
+            action = 0
 
-        # if random.random() > 0.9:
-        #    press_space()
-
+        # make tuple (previous_states, action, reward, current_state)
         frame = grab_frame(coordinates)
         stack.extend([frame])
         previous_state = current_state
         current_state = np.dstack(stack)
-        r = reward(previous_state)
+        reward = calculate_reward(previous_state)
 
-        #y0 = r + 0.9 * max(max(model.predict(x=current_state[np.newaxis, ...])))
-        #model.fit(x=previous_state[np.newaxis, ...], y=np.array([[y0, y0]]), verbose=0)
+        # updating the model
+        y = prediction
+        y[action] = reward + 0.9 * np.max(model.predict(x=current_state[np.newaxis, ...]))
+        model.fit(x=previous_state[np.newaxis, ...], y=np.array([y]), verbose=0)
 
         # Wait for next frame
         time_to_process = time.time()-start
+        #print(time_to_process)
         time.sleep(max(0.0, framerate - time_to_process))
 
     kill_app(app)
-
-
 
 
 if __name__ == "__main__":
