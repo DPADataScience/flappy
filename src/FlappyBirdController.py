@@ -91,9 +91,9 @@ def convert_array_to_image(arr):
 
 def process_image(image):
     """"
-    Processes an image by converting it to grey scale, then does the edge detection by using the canny algorithm.
+    Processes an image by converting it to a numpy array, scaling without losing detail and selecting only edges that matter.
 
-    :param image: an instane of PIL.Image
+    :param image: an instance of mss.screenshot.Screenshot
     :return np.array: The processed image as numpy array (black/white and scaled)
     """
 
@@ -105,35 +105,18 @@ def process_image(image):
     return arr
 
 
-def stream_app(coordinates, frames=3, fps=30, stack=False):
+def grab_frame(coordinates):
     """"
-    Streams the coordinates of the screen per number of frames as specified
+    grabs screen within coordinates, and apply process_image
 
-    :param coordinates: dict the coordinates to pass to stream
-    :param frames: int the number of frames to stack
-    :param fps: int the framerate of the stream
-    :return stacked: numpy.array the images stacked onto each other
+    :param coordinates: dict the coordinates of the screen
+    :return image: numpy.array representation of processed images
     """
-    framerate = 1.0/fps
-
-    images = []
     sct = mss()
-    if stack:
-        for i in range(frames):
-            sct_img = sct.grab(coordinates)
-            #im = Image.frombytes('RGB', sct_img.size, sct_img.rgb)
-            im = process_image(sct_img)
-            images.append(im)
-            time.sleep(framerate)
-            # stacked = np.dstack(images)
-    else:
-        sct_img = sct.grab(coordinates)
-        #im = Image.frombytes('RGB', sct_img.size, sct_img.rgb)
-        im = process_image(sct_img)
-        images.append(im)
-        #print(np.array(im).shape)
-    # stacked = np.dstack(images)
-    return images
+    screen_image = sct.grab(coordinates)
+    processed_image = process_image(screen_image)
+    return processed_image
+
 
 def reward(state):
     if np.sum((state[:,:,3] - state[:,:,2])) == 0 and np.sum((state[:,:,2] - state[:,:,1])) == 0 and np.sum((state[:,:,1] - state[:,:,0])) > 10:
@@ -164,8 +147,10 @@ def main():
 
     # Prepare frame stack and model
     stack = deque(maxlen=4)
-    stream_before = stream_app(coordinates=coordinates, frames=4, fps=FPS, stack=True)
-    stack.extend(stream_before)
+    for i in range(4):
+        frame = grab_frame(coordinates)
+        stack.extend([frame])
+        time.sleep(framerate)
     current_state = np.dstack(stack)
     model = create_model()
 
@@ -177,8 +162,8 @@ def main():
         # if random.random() > 0.9:
         #    press_space()
 
-        stream_before = stream_app(coordinates=coordinates, frames=1, fps=FPS, stack=False )
-        stack.extend(stream_before) 
+        frame = grab_frame(coordinates)
+        stack.extend([frame])
         previous_state = current_state
         current_state = np.dstack(stack)
         r = reward(previous_state)
@@ -188,7 +173,6 @@ def main():
 
         # Wait for next frame
         time_to_process = time.time()-start
-        print(time_to_process)
         time.sleep(max(0.0, framerate - time_to_process))
 
     kill_app(app)
