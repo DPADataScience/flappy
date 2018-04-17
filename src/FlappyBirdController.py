@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import os
 import subprocess
+import random
 import pyautogui
 import win32gui
 from pywinauto.application import  Application
@@ -93,14 +94,14 @@ def process_image(image):
     Processes an image by converting it to grey scale, then does the edge detection by using the canny algorithm.
 
     :param image: an instane of PIL.Image
-    :return np.array: The processed image as numpy array (greyscale and canny)
+    :return np.array: The processed image as numpy array (black/white and scaled)
     """
-    arr = convert_image_to_array(image)
-    # convert to gray
-    #processed_img = cv2.cvtColor(arr, cv2.COLOR_BGR2GRAY)
 
-    # edge detection
-    #processed_img =  cv2.Canny(processed_img, threshold1=160, threshold2=300)
+    arr = np.array(image)
+    arr = np.delete(arr, np.s_[::2], 0)
+    arr = np.delete(arr, np.s_[::2], 1)
+    arr = np.sum(arr, axis=2)
+    arr = (np.maximum(np.multiply(100 < arr, arr < 227), arr == 352) * 255).astype('uint8')
     return arr
 
 
@@ -120,90 +121,77 @@ def stream_app(coordinates, frames=3, fps=30, stack=False):
     if stack:
         for i in range(frames):
             sct_img = sct.grab(coordinates)
-            im = Image.frombytes('RGB', sct_img.size, sct_img.rgb)
-            # im = process_image(im)
-            # images.append(im)
+            #im = Image.frombytes('RGB', sct_img.size, sct_img.rgb)
+            im = process_image(sct_img)
             images.append(im)
             time.sleep(framerate)
             # stacked = np.dstack(images)
     else:
         sct_img = sct.grab(coordinates)
-        im = Image.frombytes('RGB', sct_img.size, sct_img.rgb)
+        #im = Image.frombytes('RGB', sct_img.size, sct_img.rgb)
+        im = process_image(sct_img)
         images.append(im)
-        print(np.array(im).shape)
+        #print(np.array(im).shape)
     # stacked = np.dstack(images)
     return images
 
 def reward(state):
-    if sum(sum((state[:,:,11] - state[:,:,8]))) != 0 and sum(sum((state[:,:,11] - state[:,:,8]))) < 10000 and sum(sum((state[:,:,5] - state[:,:,2]))) > 10000:
+    if np.sum((state[:,:,3] - state[:,:,2])) == 0 and np.sum((state[:,:,2] - state[:,:,1])) == 0 and np.sum((state[:,:,1] - state[:,:,0])) > 10:
         print("flappy is dood")
         return -10
-    elif punt_gescoord(state):
+    elif sum(state[0,:50,3]) == 510 and sum(state[0,:50,2]) == 510 and sum(state[0,:50,1]) != 510 and sum(state[0,:50,0]) != 510:
         print("punt gescoord!")
         return 1
     else:
         return 0
 
-def punt_gescoord(state):
-    background = np.median(state[0,:,11])
-    if any([state[0,x,11] == background for x in range(48, 92)]):
-        return False
-    elif any([state[0,x,8] == background for x in range(48, 92)]):
-        return True
-    return False
-
 def main():
-    FPS = 30
-    launch_flappy()
-    app = get_application()
 
     # Play game and grab screen
+    launch_flappy()
+    app = get_application()
     x_start, y_start, x_end, y_end = get_window_coordinates(app)
-    coordinates = {'top':y_start,
+    coordinates = {'top': y_start,
                    'left': x_start,
-                   'height': y_end-y_start,
-                   'width': x_end-x_start
+                   'height': y_end - y_start - 100,
+                   'width': x_end - x_start
                    }
 
-    stack = deque(maxlen=4)
-    t_end = time.time() + 30
+    # Set time parameters
+    FPS = 30
+    t_end = time.time() + 10
     framerate = 1/FPS
-    #press_space()
 
+    # Prepare frame stack and model
+    stack = deque(maxlen=4)
+    stream_before = stream_app(coordinates=coordinates, frames=4, fps=FPS, stack=True)
+    stack.extend(stream_before)
+    current_state = np.dstack(stack)
     model = create_model()
 
     while time.time() < t_end:
         start = time.time()
 
-        if len(stack) < 4:
-            stream_before = stream_app(coordinates=coordinates, frames=4, fps=FPS, stack=True)
+        # action
 
-        else:
-            stream_before = stream_app(coordinates=coordinates, frames=1, fps=FPS, stack=False )
+        # if random.random() > 0.9:
+        #    press_space()
 
+        stream_before = stream_app(coordinates=coordinates, frames=1, fps=FPS, stack=False )
         stack.extend(stream_before) 
+        previous_state = current_state
         current_state = np.dstack(stack)
-        r = reward(current_state)
-        print(current_state.shape)
-        print(model.predict(x = current_state))
+        r = reward(previous_state)
+
+        #y0 = r + 0.9 * max(max(model.predict(x=current_state[np.newaxis, ...])))
+        #model.fit(x=previous_state[np.newaxis, ...], y=np.array([[y0, y0]]), verbose=0)
+
+        # Wait for next frame
         time_to_process = time.time()-start
-        if r > 0:
-            print(r)
-        time.sleep(max(0, framerate - time_to_process))
-        # time.sleep(framerate-time_to_process)
-        # do action
-        stream_after = stream_app(coordinates=coordinates, frames=1, fps=FPS, stack=False)
-        stack.extend(stream_after)
-        next_state = np.dstack(stack)
-        r = reward(next_state)
-        if r > 0:
-            print(r)
-
-
-
+        print(time_to_process)
+        time.sleep(max(0.0, framerate - time_to_process))
 
     kill_app(app)
-
 
 
 
