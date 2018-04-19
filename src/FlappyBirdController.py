@@ -14,6 +14,7 @@ from pywinauto.controls.hwndwrapper import HwndWrapper
 from mss import mss
 from collections import deque
 from src.nn import create_model
+from keras.models import load_model
 
 def launch_flappy(folder='../FlappyBirdClone/', filename = 'flappy.py', timeout=2):
     """"
@@ -101,7 +102,8 @@ def process_image(image):
     arr = np.delete(arr, np.s_[::2], 0)
     arr = np.delete(arr, np.s_[::2], 1)
     arr = np.sum(arr, axis=2)
-    arr = (np.maximum(np.multiply(100 < arr, arr < 227), arr == 352) * 255).astype('uint8')
+    #arr = (np.maximum(np.multiply(100 < arr, arr < 227), arr == 352) * 255).astype('uint8')
+    arr = (np.multiply(100 < arr, arr < 227) * 255).astype('uint8')
     return arr
 
 
@@ -120,11 +122,14 @@ def grab_frame(coordinates):
 
 def calculate_reward(state):
     """"
-    calculate the reward of the state
+    calculate the reward of the state. Flappy is dead when the screen has stopped moving, so when two consecutive frames
+    are equal. A point is scored when an obstacle is above flappy, and before it wasn't. An object is above Flappy when
+    there are two white pixels in the first 50 pixels on the first row.
 
     :param state: four consecutive processed frames
     :return reward: int representing the reward if a point is scored or if flappy has died.
     """
+
     if np.sum((state[:,:,3] - state[:,:,2])) == 0 and np.sum((state[:,:,2] - state[:,:,1])) == 0:# and np.sum((state[:,:,1] - state[:,:,0])) > 10:
         print("flappy is dood")
         return -100
@@ -148,7 +153,7 @@ def main():
 
     # Set time parameters
     FPS = 30
-    t_end = time.time() + 10
+    t_end = time.time() + 60
     framerate = 1/FPS
 
     # Prepare states, action  and model
@@ -158,10 +163,13 @@ def main():
         stack.extend([frame])
         time.sleep(framerate)
     current_state = np.dstack(stack)
-    model = create_model()
+
+    #model = create_model()
+    model = load_model('flappy_model.h5')
+
     action = 0
 
-    while True: # time.time() < t_end:
+    while time.time() < t_end:
         start = time.time()
 
         # action
@@ -190,7 +198,7 @@ def main():
         time.sleep(max(0.0, framerate - time_to_process))
 
     kill_app(app)
-
+    model.save('flappy_model.h5')
 
 if __name__ == "__main__":
     main()
