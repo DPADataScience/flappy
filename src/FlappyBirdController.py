@@ -15,6 +15,7 @@ from mss import mss
 from collections import deque
 from src.nn import create_model
 from keras.models import load_model
+import random
 
 def launch_flappy(folder='../FlappyBirdClone/', filename = 'flappy.py', timeout=2):
     """"
@@ -154,14 +155,15 @@ def main():
 
     # Set time parameters
     FPS = 30
-    stacked_frames = 4
+    NR_STACKED_FRAMES = 4
     GAMMA = 0.9
+    BATCH_SIZE = 5
     t_end = time.time() + 60
     framerate = 1/FPS
 
     # Prepare states, action  and model
-    stack = deque(maxlen=stacked_frames)
-    for i in range(stacked_frames):
+    stack = deque(maxlen=NR_STACKED_FRAMES)
+    for i in range(NR_STACKED_FRAMES):
         frame = grab_frame(coordinates)
         stack.extend([frame])
         time.sleep(framerate)
@@ -170,21 +172,41 @@ def main():
     #model = create_model()
     model = load_model('flappy_model.h5')
 
-    replay_memory = []
+    replay_memory =  deque(maxlen=500)
 
     action = 0
 
     while time.time() < t_end:
         start = time.time()
 
-        # action
-        prediction = model.predict(x=current_state[np.newaxis, ...])[0]
+        ''''
+        Given a transition < s, a, r, s’ >, the Q-table update rule in the previous algorithm must be replaced with the following:
 
-        if prediction[1] > prediction[0]:
-            action = 1
-            press_space()
+        1. Do a feedforward pass for the current state s to get predicted Q-values for all actions.
+        2. Do a feedforward pass for the next state s’ and calculate maximum overall network outputs max a’ Q(s’, a’).
+        3. Set Q-value target for action to r + γmax a’ Q(s’, a’) (use the max calculated in step 2). 
+            For all other actions, set the Q-value target to the same as originally returned from step 1, making the error 0 for those outputs.
+        4. Update the weights using backpropagation.
+
+        '''
+
+        # action
+        # select an action a
+        # with probability p select a random action
+        # otherwise select a = argmax Q(s, a')
+        if np.random.uniform() >= 0.5:
+            if np.random.uniform() >= 0.5:
+                action = 1
+                press_space()
+            else:
+                action = 0
         else:
-            action = 0
+            prediction = model.predict(x=current_state[np.newaxis, ...])[0]  # step 1
+            if prediction[1] > prediction[0]:
+                action = 1
+                press_space()
+            else:
+                action = 0
 
         # make tuple (previous_states, action, reward, current_state)
         frame = grab_frame(coordinates)
@@ -192,16 +214,39 @@ def main():
         previous_state = current_state
         current_state = np.dstack(stack)
         reward = calculate_reward(previous_state)
-        
-        # updating the model
-        y = prediction
-        y[action] = reward + GAMMA * np.max(model.predict(x=current_state[np.newaxis, ...]))
-        model.fit(x=previous_state[np.newaxis, ...], y=np.array([y]), verbose=0)
 
-        # Wait for next frame
+        #store experience in <s, a, r, s'> in replay memory D
+        the_tuple = dict()
+        the_tuple['previous_state'] = previous_state
+        the_tuple['action'] = action
+        the_tuple['reward'] = reward
+        the_tuple['current_state'] = current_state
+
+        replay_memory.append(the_tuple)
+        print('rm', replay_memory)
+        #get minibatch
+        if len(replay_memory) > BATCH_SIZE:
+            minibatch = random.sample(replay_memory, k=BATCH_SIZE)
+            y = []
+            for mb in minibatch:
+                target = model.predict(x=mb['current_state'][np.newaxis, ...])[0] #model returns a 2D array
+                print('target', target)
+                y.append(target)
+            #
+            #calculate target for each minibatch transition
+            # if ss'is terminal state then tt == rr
+            #otherwise tt = rr + ymax(Q)
+
+            #train network using minibatch
+            # updating the model
+            y = prediction
+            y[action] = reward + GAMMA * np.max(model.predict(x=current_state[np.newaxis, ...])) #step 2 and 3
+            model.fit(x=previous_state[np.newaxis, ...], y=np.array([y]), verbose=0) # Step 4
+
+            # Wait for next frame
         time_to_process = time.time()-start
         print('time to process', time_to_process)
-        time.sleep(max(0.0, framerate - time_to_process))
+        time.sleep(max(0.0, framerate - time_to_process)) # it not needed to update the nn for every frame, we can skip frames
 
     kill_app(app)
     model.save('flappy_model.h5')
