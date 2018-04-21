@@ -175,11 +175,11 @@ def main():
     replay_memory =  deque(maxlen=500)
 
     action = 0
-
+    #start episode
     while time.time() < t_end:
         start = time.time()
 
-        ''''
+        '''
         Given a transition < s, a, r, s’ >, the Q-table update rule in the previous algorithm must be replaced with the following:
 
         1. Do a feedforward pass for the current state s to get predicted Q-values for all actions.
@@ -223,30 +223,37 @@ def main():
         the_tuple['current_state'] = current_state
 
         replay_memory.append(the_tuple)
-        print('rm', replay_memory)
-        #get minibatch
-        if len(replay_memory) > BATCH_SIZE:
-            minibatch = random.sample(replay_memory, k=BATCH_SIZE)
-            y = []
-            for mb in minibatch:
-                target = model.predict(x=mb['current_state'][np.newaxis, ...])[0] #model returns a 2D array
-                print('target', target)
-                y.append(target)
-            #
-            #calculate target for each minibatch transition
-            # if ss'is terminal state then tt == rr
-            #otherwise tt = rr + ymax(Q)
 
-            #train network using minibatch
-            # updating the model
-            y = prediction
-            y[action] = reward + GAMMA * np.max(model.predict(x=current_state[np.newaxis, ...])) #step 2 and 3
-            model.fit(x=previous_state[np.newaxis, ...], y=np.array([y]), verbose=0) # Step 4
 
-            # Wait for next frame
-        time_to_process = time.time()-start
-        print('time to process', time_to_process)
-        time.sleep(max(0.0, framerate - time_to_process)) # it not needed to update the nn for every frame, we can skip frames
+    #get minibatch and train network
+    minibatch = random.sample(replay_memory, k=BATCH_SIZE)
+
+    y = []
+    for mb in minibatch:
+        current_state = mb['current_state']
+        reward = calculate_reward(current_state)
+        if reward == -100:
+            target = mb['reward']
+        else:
+            target = mb['reward'] + GAMMA * np.max(model.predict(x=current_state[np.newaxis, ...])) #model returns a 2D array
+        print('target', target)
+        y.append(target)
+    #
+    #calculate target for each minibatch transition
+    # if ss'is terminal state then tt == rr
+    #otherwise tt = rr + ymax(Q)
+
+    #train network using minibatch
+    # updating the model
+    print('y', y)
+    # y = prediction
+    # y[action] = reward + GAMMA * np.max(model.predict(x=current_state[np.newaxis, ...])) #step 2 and 3
+    model.fit(x=previous_state[np.newaxis, ...], y=np.array([y]), verbose=0) # Step 4
+
+        # Wait for next frame
+    time_to_process = time.time()-start
+    print('time to process', time_to_process)
+    time.sleep(max(0.0, framerate - time_to_process)) # it not needed to update the nn for every frame, we can skip frames
 
     kill_app(app)
     model.save('flappy_model.h5')
