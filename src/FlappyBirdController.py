@@ -46,6 +46,7 @@ def press_space():
     keyboard.release(Key.space)
 
 
+
 def get_application(title='Flappy Bird'):
     """"
     Connects to a window and returns this as an pywintauto.Application
@@ -62,7 +63,7 @@ def kill_app(app):
     """"
     Kills a pywintauto.Application
 
-    ;:return: void
+    :return: void
     """
     app.kill()
 
@@ -166,11 +167,14 @@ def main():
 
     # Set time parameters
     FPS = 30
+    stacked_frames = 4
+    GAMMA = 0.9
+    t_end = time.time() + 60
     framerate = 1/FPS
 
     # Prepare states, action  and model
-    stack = deque(maxlen=4)
-    for i in range(4):
+    stack = deque(maxlen=stacked_frames)
+    for i in range(stacked_frames):
         frame = grab_frame(coordinates)
         stack.extend([frame])
         time.sleep(framerate)
@@ -178,6 +182,8 @@ def main():
 
     model = create_model()
     #model = load_model('flappy_model.h5')
+
+    replay_memory = []
 
     action = 0
     iteraties = 0
@@ -191,6 +197,7 @@ def main():
 
         # action
         prediction = model.predict(x=current_state[np.newaxis, ...])[0]
+
         if prediction[1] > prediction[0]:
             action = 1
             press_space()
@@ -203,15 +210,15 @@ def main():
         previous_state = current_state
         current_state = np.dstack(stack)
         reward = calculate_reward(previous_state)
-
+        
         # updating the model
         y = prediction
-        y[action] = reward + 0.9 * np.max(model.predict(x=current_state[np.newaxis, ...]))
+        y[action] = reward + GAMMA * np.max(model.predict(x=current_state[np.newaxis, ...]))
         model.fit(x=previous_state[np.newaxis, ...], y=np.array([y]), verbose=0)
 
         # Wait for next frame
         time_to_process = time.time()-start
-        #print(time_to_process)
+        print('time to process', time_to_process)
         time.sleep(max(0.0, framerate - time_to_process))
         iteraties = iteraties + 1
 
