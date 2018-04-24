@@ -1,7 +1,7 @@
 from PIL import ImageGrab, Image
 import time
 import numpy as np
-#import cv2
+import cv2
 import pandas as pd
 import os
 import subprocess
@@ -15,6 +15,8 @@ from mss import mss
 from collections import deque
 from src.nn import create_model
 from keras.models import load_model
+from pynput.keyboard import Key, Controller
+import matplotlib.pyplot as plt
 
 def launch_flappy(folder='../FlappyBirdClone/', filename = 'flappy.py', timeout=2):
     """"
@@ -39,7 +41,9 @@ def press_space():
 
     :return: void
     """
-    SendKeys('{VK_SPACE}')
+    keyboard = Controller()
+    keyboard.press(Key.space)
+    keyboard.release(Key.space)
 
 
 def get_application(title='Flappy Bird'):
@@ -102,8 +106,7 @@ def process_image(image):
     arr = np.delete(arr, np.s_[::2], 0)
     arr = np.delete(arr, np.s_[::2], 1)
     arr = np.sum(arr, axis=2)
-    #arr = (np.maximum(np.multiply(100 < arr, arr < 227), arr == 352) * 255).astype('uint8')
-    arr = (np.multiply(100 < arr, arr < 227) * 255).astype('uint8')
+    arr = (np.multiply(200 < arr, arr < 227) * 255).astype('uint8')
     return arr
 
 
@@ -129,17 +132,27 @@ def calculate_reward(state):
     :param state: four consecutive processed frames
     :return reward: int representing the reward if a point is scored or if flappy has died.
     """
-
-    if np.sum((state[:,:,3] - state[:,:,2])) == 0 and np.sum((state[:,:,2] - state[:,:,1])) == 0:# and np.sum((state[:,:,1] - state[:,:,0])) > 10:
-        print("flappy is dood")
+    if np.sum(state[30:32, :, 3]) == 8415:
+        print("in menu")
         return -100
+    elif np.sum(state[:, 0:50, 3]) / 255 == 50:
+        print("buiten scherm")
+        return -100
+    elif np.sum((state[:,:,3] - state[:,:,2])) == 0 and np.sum((state[:,:,2] - state[:,:,1])) == 0:
+        print("flappy is dood")
+        return -1000
     elif sum(state[0,:50,3]) == 510 and sum(state[0,:50,2]) == 510 and sum(state[0,:50,1]) != 510 and sum(state[0,:50,0]) != 510:
         print("punt gescoord!")
-        return 100
+        return 1000
     else:
         return 0
 
 def main():
+
+    # showing the processed image
+    cv2.imshow('processed image', np.zeros(shape=(203, 144)).astype('uint8'))
+    cv2.moveWindow('processed image', 0, 600)
+    cv2.waitKey(1)
 
     # Play game and grab screen
     launch_flappy()
@@ -147,13 +160,12 @@ def main():
     x_start, y_start, x_end, y_end = get_window_coordinates(app)
     coordinates = {'top': y_start,
                    'left': x_start,
-                   'height': y_end - y_start - 100,
+                   'height': y_end - y_start - 106,
                    'width': x_end - x_start
                    }
 
     # Set time parameters
     FPS = 30
-    t_end = time.time() + 60
     framerate = 1/FPS
 
     # Prepare states, action  and model
@@ -164,11 +176,16 @@ def main():
         time.sleep(framerate)
     current_state = np.dstack(stack)
 
-    #model = create_model()
-    model = load_model('flappy_model.h5')
+    model = create_model()
+    #model = load_model('flappy_model.h5')
 
     action = 0
+    iteraties = 0
+    plt.show()
 
+
+
+    t_end = time.time() + 20
     while time.time() < t_end:
         start = time.time()
 
@@ -196,9 +213,16 @@ def main():
         time_to_process = time.time()-start
         #print(time_to_process)
         time.sleep(max(0.0, framerate - time_to_process))
+        iteraties = iteraties + 1
+
+        # Updating the processed image
+        cv2.imshow('image', current_state[:, :, 3])
+        cv2.waitKey(1)
+
 
     kill_app(app)
     model.save('flappy_model.h5')
-
+    print(iteraties)
+    cv2.destroyAllWindows()
 if __name__ == "__main__":
     main()

@@ -5,7 +5,7 @@ from keras.layers import Dense, Flatten, Conv2D
 def create_model():
     model = Sequential()
     model.add(Conv2D(filters=32, kernel_size=(7,4), strides = (7, 4), padding='same',
-                  data_format='channels_last', activation='relu', input_shape=(206,144,4)))
+                  data_format='channels_last', activation='relu', input_shape=(203,144,4)))
     model.add(Conv2D(filters=64, kernel_size=(8,8), strides = 4, padding='same',
                   data_format='channels_last', activation='relu'))
     model.add(Conv2D(filters=64, kernel_size=(2,2), strides = 2, padding='same',
