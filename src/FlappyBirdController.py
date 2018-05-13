@@ -42,6 +42,8 @@ def main():
     cv2.moveWindow('processed image', 0, 600)
     cv2.waitKey(1)
 
+    train = True
+
     # Play game and grab screen
     launch_flappy()
     app = get_application()
@@ -49,7 +51,10 @@ def main():
     environment = Environment(app, FPS=10, stacked_frames=4) #the reward functie doet het nog niet helemaal goed! dedecteert onterechte flappy is dood statements
 
     agent = Agent(environment)
-    agent.train(5)
+    if train:
+        agent.train(5)
+    else:
+        agent.play()
 
     environment.close()
     # # Updating the processed image

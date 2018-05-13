@@ -74,8 +74,27 @@ class Agent:
         print("Score over time: " + str(sum(rewards) / total_episodes))
 
 
-    def play(self):
-            raise NotImplementedError
+    def play(self, episodes=1, repeat_play=False):
+        """"
+        The agent plays the game.
+
+        :param episodes: int number of rounds the agent should play the game
+        :param repeat_play: boolean whether the agent should repeat playing after dying or not
+        """
+        for episode in range(episodes):
+            state = self.env.reset()
+            print("****************************************************")
+            print("EPISODE ", episode)
+            while True:
+                action = np.argmax(self.model.predict(state))
+                next_state, reward, done, info = self.env.step(action)
+
+                if done:
+                    if repeat_play:
+                        self.env.reset()
+                    else:
+                        print("Flappy died")
+                state = next_state
 
 
 class Environment:
