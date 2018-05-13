@@ -46,7 +46,7 @@ def main():
     launch_flappy()
     app = get_application()
 
-    environment = Environment(app, FPS=30, stacked_frames=4)
+    environment = Environment(app, FPS=10, stacked_frames=4) #the reward functie doet het nog niet helemaal goed! dedecteert onterechte flappy is dood statements
 
     agent = Agent(environment)
     agent.train(5)
