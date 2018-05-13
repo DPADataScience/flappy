@@ -3,9 +3,9 @@ from mss import mss
 import numpy as np
 from PIL import Image
 from pynput.keyboard import Key, Controller
-from collections import deque
 import time
 from src import nn
+
 
 class Agent:
     def __init__(self, environment,  disount_rate=0.9, epsilon=1.0, max_epsilon=1.0, min_epsilon=0.01, decay_rate=0.01):
@@ -29,14 +29,12 @@ class Agent:
         self.decay_rate = decay_rate
         self.model = nn.create_model() #TODO create network:  _create_network()
 
-
-
     def _create_network(self):
         raise NotImplementedError("yet to be implemented")
 
     def train(self, total_episodes):
         """"
-        Trains the agent to play the game assigned to this agent
+        Trains the agent to play the game assigned to this agent using Reinforcement Learning
         """
         # raise NotImplementedError
         rewards = []
@@ -48,7 +46,7 @@ class Agent:
                 # so the agent can explore the environment, later once it has learned about the environment it can
                 # start to take actions it knows
                 predicted = self.model.predict(state)
-                action = np.argmax(predicted)
+                action = np.argmax(predicted[0])
                 if np.random.uniform(low=0, high=1) < self.epsilon:
                     action = np.random.choice(self.env.action_space)
 
@@ -60,8 +58,7 @@ class Agent:
                 Qmax = np.max(predicted_next_state)
                 y = predicted
 
-                print("y", y)
-                y[0][action] = reward + self.gamma * np.max(self.model.predict(x=state))
+                y[0][action] = reward + self.gamma * Qmax
                 self.model.fit(x=state, y=y, verbose=0)
 
                 state = next_state
@@ -197,7 +194,8 @@ class Environment:
         return observation
 
     def _stream(self):
-        stack = deque(maxlen=self.stacked_frames)
+        # stack = deque(maxlen=self.stacked_frames)
+        stack = []
         for i in range(self.stacked_frames):
             frame = self._grab_frame(self.coordinates)
             stack.extend([frame])

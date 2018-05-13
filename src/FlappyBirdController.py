@@ -1,16 +1,9 @@
-from PIL import ImageGrab, Image
 import time
 import numpy as np
 import cv2
 import subprocess
 from pywinauto.application import  Application
-from mss import mss
-from collections import deque
-from src.nn import create_model
-
-import matplotlib.pyplot as plt
 from src.objects import Environment, Agent
-
 
 
 def launch_flappy(folder='../FlappyBirdClone/', filename = 'flappy.py', timeout=2):
@@ -40,7 +33,6 @@ def get_application(title='Flappy Bird'):
     app = Application()
     app.connect(title=title)
     return app
-
 
 
 def main():
