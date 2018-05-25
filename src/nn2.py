@@ -19,8 +19,8 @@ class Q(object):
         if reset_Q:
             model_0 = Sequential()
             model_0.add(Dense(units=10, activation='relu', input_shape=[2]))
-            #model_0.add(Dense(units=10, activation='relu'))
             model_0.add(Dense(units=10, activation='relu'))
+            #model_0.add(Dense(units=10, activation='relu'))
             model_0.add(Dense(units=1, activation='linear'))
             #maybe add decay in the optimizer
             model_0.compile(optimizer='rmsprop', loss='mse')
@@ -29,8 +29,8 @@ class Q(object):
 
             model_1 = Sequential()
             model_1.add(Dense(units=10, activation='relu', input_shape=[2]))
-            #model_1.add(Dense(units=10, activation='relu'))
             model_1.add(Dense(units=10, activation='relu'))
+            #model_1.add(Dense(units=10, activation='relu'))
             model_1.add(Dense(units=1, activation='linear'))
             #maybe add decay in the optimizer
             model_1.compile(optimizer='rmsprop', loss='mse')
@@ -43,7 +43,7 @@ class Q(object):
             self.model[1] = load_model('flappy_model_1.h5')
             print('Loaded models from drive.')
 
-        self.GAMMA = 0.9
+        self.GAMMA = 0.96
         # self.omschrijving()
 
     def predict(self, state, action):
@@ -55,7 +55,7 @@ class Q(object):
     def predict_action(self, state):
         """[np.newaxis, ...] staat erbij omdat .predict een verzameling aan inputs verwacht. """
 
-        print('1: ', self.predict(state, 1), '    0: ', self.predict(state, 0))
+        #print('1: ', self.predict(state, 1), '    0: ', self.predict(state, 0))
 
         if self.predict(state, 1) > self.predict(state, 0):
             return 1
@@ -68,29 +68,23 @@ class Q(object):
 
     def train(self, previous_state, action, reward, current_state):
         #print('y was: ', y, ' action: ', action, ' reward: ', reward)
-
         y = reward + self.GAMMA * max(self.predict(current_state, 0), self.predict(current_state, 1))
         #print('y is: ', y)
         self.fit(previous_state, y, action)
         #y[action] = self.predict(previous_state, action)
         #print('y wordt: ', y, ' action: ', action, ' reward: ', reward)
 
-    def train_with_memory2(self, memories):
-        start = time.time()
-        memories = memories[0:1000]
-        for memory in memories:
-            self.train(memory[0], memory[1], memory[2], memory[3])
-        print("Getraind op batch uit geheugen (", time.time() - start, ' sec).')
-
     def train_with_memory(self, memories, batch_size=10000, mini_batch_size=500, iterations=10):
         start = time.time()
         print('memories.shape: ', memories.shape)
+        print('procent 100 in memories: ', memories[memories.reward == 100].shape[0] / memories.shape[0])
+
         for i in range(iterations):
 
-            batch = memories.sample(min(batch_size, memories.shape[0]))
-
+            batch = memories.sample(min(batch_size, memories.shape[0]), replace=True, weights=memories['reward'].apply(lambda r: min(abs(r), 12)))
             if i == 0:
                 print('batch.shape: ', batch.shape)
+                print('procent 100 in batch: ', batch[batch.reward == 100].shape[0] / batch.shape[0])
 
             for action in [0, 1]:
                 sub_batch = batch.loc[batch['action'] == action]
