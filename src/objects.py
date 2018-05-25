@@ -8,6 +8,7 @@ from src import nn
 import pandas as pd
 from collections import deque
 
+import cv2
 
 class Agent:
     def __init__(self, environment,  disount_rate=0.9, epsilon=1.0, max_epsilon=1.0, min_epsilon=0.01, decay_rate=0.01):
@@ -29,7 +30,7 @@ class Agent:
         self.max_epsilon = max_epsilon
         self.min_epsilon = min_epsilon
         self.decay_rate = decay_rate
-        self.model = nn.create_model() #TODO create network:  _create_network()
+        self.model = nn.create_model(environment.stacked_frames) #TODO create network:  _create_network()
 
     def _create_network(self):
         raise NotImplementedError("yet to be implemented")
@@ -66,8 +67,8 @@ class Agent:
                 total_rewards += reward
                 rewards.append(total_rewards)
 
-            self.learn_from_experience(memory=memories, batch_size=500)
-            # retrain the neural net
+            # self.learn_from_experience(memory=memories, batch_size=500)
+             # retrain the neural net
             # predicted_next_state = self.model.predict(next_state)
             # Qmax = np.max(predicted_next_state)
             # y = predicted
@@ -112,6 +113,8 @@ class Agent:
                         self.env.reset()
                     else:
                         print("Flappy died")
+                    #break
+
                 state = next_state
 
 
@@ -171,8 +174,10 @@ class Environment:
         arr = np.array(image)
         arr = np.delete(arr, np.s_[::2], 0)
         arr = np.delete(arr, np.s_[::2], 1)
-        arr = np.sum(arr, axis=2)
-        arr = (np.multiply(200 < arr, arr < 227) * 255).astype('uint8')
+        arr = np.sum(arr, axis=2).astype('uint8')
+        arr = cv2.cvtColor(arr, cv2.COLOR_BAYER_BG2GRAY)
+        arr = cv2.Canny(arr, 150, 200 )
+        # arr = (np.multiply(208 < arr, arr < 245) * 255).astype('uint8')
         return arr
 
     def _convert_image_to_array(self, image):
@@ -265,6 +270,13 @@ class Environment:
         info = {}
         if reward == -1000:
             done = True
+
+        if True:#show_processed_image:
+            cv2.imshow('processed image', observation[:, :, 0])
+            cv2.waitKey(1)
+            print(np.max(observation[:, :, 0]))
+            #print()
+
 
         return observation, reward, done, info
 
