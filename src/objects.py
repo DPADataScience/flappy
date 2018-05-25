@@ -67,14 +67,8 @@ class Agent:
                 total_rewards += reward
                 rewards.append(total_rewards)
 
-            # self.learn_from_experience(memory=memories, batch_size=500)
-             # retrain the neural net
-            # predicted_next_state = self.model.predict(next_state)
-            # Qmax = np.max(predicted_next_state)
-            # y = predicted
-            #
-            # y[0][action] = reward + self.gamma * Qmax
-            # self.model.fit(x=state, y=y, verbose=0)
+            self.learn_from_experience(memory=memories, batch_size=500)
+
 
             # adjust epsilon by an exponential function with lower bound min_epsilon
             self.epsilon = self.min_epsilon + (self.max_epsilon - self.min_epsilon) * np.exp(-self.decay_rate * episode)
@@ -83,11 +77,26 @@ class Agent:
         print("Score over time: " + str(sum(rewards) / total_episodes))
 
     def learn_from_experience(self, memory, batch_size):
+        # retrain the neural net
+        # predicted_next_state = self.model.predict(next_state)
+        # Qmax = np.max(predicted_next_state)
+        # y = predicted
+        #
+        # y[0][action] = reward + self.gamma * Qmax
+        # self.model.fit(x=state, y=y, verbose=0)
+        print("learning from experience")
+        print('size memories', memory.get_length())
         sampled_memories = memory.sample(batch_size) # DataFrame
         # next_state, reward, action, done, info, state
-        x = pd.DataFrame(sampled_memories.current_state.values.tolist()).values
-        sampled_memories['y'] = sampled_memories.as_matrix(columns=['reward']) + self.GAMMA * np.maximum(self.model.predict(x))
-        # x = np.array(sampled_memories.previous_state)
+        x = np.array(sampled_memories.state.values.tolist()) #unpack column
+        predictions = self.model.predict(x)
+        print('predictions', predictions)
+        Qmax = np.max(predictions, axis=(1, 1)) # return array with right maximum here
+        print('qmax', Qmax)
+        mat = sampled_memories.as_matrix(columns=['reward'])
+        print('mat', mat)
+        sampled_memories['y'] = sampled_memories.as_matrix(columns=['reward']) + self.gamma * np.maximum(self.model.predict(x))
+
         x = pd.DataFrame(sampled_memories.previous_state.values.tolist()).values
         y = sampled_memories.as_matrix(columns=['y'])
         self.model.fit(x, y, verbose=0)
@@ -113,7 +122,7 @@ class Agent:
                         self.env.reset()
                     else:
                         print("Flappy died")
-                    #break
+                    break
 
                 state = next_state
 
@@ -129,7 +138,6 @@ class Environment:
         self.framerate = 1/FPS
         self.coordinates = self._get_window_coordinates(app)
         self.action_space = (0, 1) #the possibe actions in this environment
-
 
     def _get_window_coordinates(self, app):
         """"
@@ -172,12 +180,13 @@ class Environment:
         """
 
         arr = np.array(image)
-        arr = np.delete(arr, np.s_[::2], 0)
+        arr = np.delete(arr, np.s_ [::2], 0)
         arr = np.delete(arr, np.s_[::2], 1)
-        arr = np.sum(arr, axis=2).astype('uint8')
-        arr = cv2.cvtColor(arr, cv2.COLOR_BAYER_BG2GRAY)
-        arr = cv2.Canny(arr, 150, 200 )
-        # arr = (np.multiply(208 < arr, arr < 245) * 255).astype('uint8')
+        # arr = np.sum(arr, axis=2).astype('uint8')
+        arr = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
+        th, arr = cv2.threshold(arr, 75, 255, cv2.THRESH_BINARY_INV) # this yields good results on my comp
+        # arr = cv2.Canny(arr, lower, upper) # this is more sophisticated but unnecessary
+        # arr = (np.multiply(208 < arr, arr < 245) * 255).astype('uint8') #this is same as thresholding
         return arr
 
     def _convert_image_to_array(self, image):
@@ -201,16 +210,16 @@ class Environment:
         :param state: four consecutive processed frames
         :return reward: int representing the reward if a point is scored or if flappy has died.
         """
-        if np.sum(state[30:32, :, 3]) == 8415:
-            print("in menu")
-            return -100
-        elif np.sum(state[:, 0:50, 3]) / 255 == 50:
+        # if np.sum(state[30:32, :, 3]) == 8415:
+        #     print("in menu")
+        #     return -100
+        if np.sum(state[:, 0:50, 3]) / 255 == 50:
             print("buiten scherm")
             return -100
-        elif np.sum((state[:,:,3] - state[:,:,2])) == 0 and np.sum((state[:,:,2] - state[:,:,1])) == 0:
+        elif np.sum((state[:, :, 3] - state[:, :, 2])) == 0 and np.sum((state[:, :, 2] - state[: ,: ,1])) == 0:
             print("flappy is dood")
             return -1000
-        elif sum(state[0,:50,3]) == 510 and sum(state[0,:50,2]) == 510 and sum(state[0,:50,1]) != 510 and sum(state[0,:50,0]) != 510:
+        elif sum(state[0, :50, 3]) == 510 and sum(state[0, :50, 2]) == 510 and sum(state[0, :50, 1]) != 510 and sum(state[0, :50, 0]) != 510:
             print("punt gescoord!")
             return 1000
         else:
@@ -274,7 +283,6 @@ class Environment:
         if True:#show_processed_image:
             cv2.imshow('processed image', observation[:, :, 0])
             cv2.waitKey(1)
-            print(np.max(observation[:, :, 0]))
             #print()
 
 
@@ -301,12 +309,18 @@ class Memory:
     def add(self, next_state, reward, action, done, info, state):
         series = pd.Series([next_state, reward, action, done, info, state],
                   index=['next_state', 'reward', 'action', 'done', 'info', 'state'])
-        self.buffer.append(series, ignore_index='True')
+        len_before = len(self.buffer)
+        self.buffer = self.buffer.append(series, ignore_index='True')
         # pop first row if larger than max size
         if len(self.buffer) > self.max_size:
             self.buffer = self.buffer.iloc[1:]
+        len_after = len(self.buffer)
+        assert (len_after-1) == len_before # assert if not equal
 
     def sample(self, batch_size):
         buffer_size = len(self.buffer)
         batch = self.buffer.sample(min(batch_size, buffer_size), replace=False)
         return batch #returns DF
+
+    def get_length(self):
+        return len(self.buffer)
