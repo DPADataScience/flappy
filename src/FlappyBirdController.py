@@ -36,11 +36,14 @@ def get_application(title='Flappy Bird'):
 
 
 def main():
+    show_processed_image = True
 
-    # showing the processed image
-    cv2.imshow('processed image', np.zeros(shape=(203, 144)).astype('uint8'))
-    cv2.moveWindow('processed image', 0, 600)
-    cv2.waitKey(1)
+
+    # Open window to show the processed image.
+    if show_processed_image:
+        cv2.imshow('processed image', np.zeros(shape=(203, 144)).astype('uint8'))
+        cv2.moveWindow('processed image', 0, 600)
+        cv2.waitKey(1)
 
     train = True
 
@@ -48,11 +51,11 @@ def main():
     launch_flappy()
     app = get_application()
 
-    environment = Environment(app, FPS=10, stacked_frames=4) #the reward functie doet het nog niet helemaal goed! dedecteert onterechte flappy is dood statements
+    environment = Environment(app, FPS=30, stacked_frames=1) #the reward functie doet het nog niet helemaal goed! dedecteert onterechte flappy is dood statements
 
     agent = Agent(environment)
     if train:
-        agent.train(5)
+        agent.train(50)
     else:
         agent.play()
 
@@ -61,7 +64,7 @@ def main():
     # cv2.imshow('image', current_state[:, :, 3])
     # cv2.waitKey(1)
 
-    # cv2.destroyAllWindows()
+    cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
