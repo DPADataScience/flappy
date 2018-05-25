@@ -5,6 +5,8 @@ from PIL import Image
 from pynput.keyboard import Key, Controller
 import time
 from src import nn
+import pandas as pd
+from collections import deque
 
 
 class Agent:
@@ -36,8 +38,10 @@ class Agent:
         """"
         Trains the agent to play the game assigned to this agent using Reinforcement Learning
         """
-        # raise NotImplementedError
+
         rewards = []
+        # memories for experience replay
+        memories = Memory(max_size=30000)
         for episode in range(total_episodes):
             state = self.env.reset()
             total_rewards = 0
@@ -45,7 +49,7 @@ class Agent:
                 # here we implement the exploration possibility in the beginning we want to take random actions
                 # so the agent can explore the environment, later once it has learned about the environment it can
                 # start to take actions it knows
-                predicted = self.model.predict(state)
+                predicted = self.model.predict(state[np.newaxis, ...])
                 action = np.argmax(predicted[0])
                 if np.random.uniform(low=0, high=1) < self.epsilon:
                     action = np.random.choice(self.env.action_space)
@@ -53,25 +57,39 @@ class Agent:
                 # take the action and observe the outcome state and reward
                 next_state, reward, done, info = self.env.step(action)
 
-                # retrain the neural net
-                predicted_next_state = self.model.predict(next_state)
-                Qmax = np.max(predicted_next_state)
-                y = predicted
-
-                y[0][action] = reward + self.gamma * Qmax
-                self.model.fit(x=state, y=y, verbose=0)
-
-                state = next_state
-                total_rewards += reward
+                # collect memories
+                memories.add(next_state, reward, action, done, info, state)
 
                 if done:
                     break
-
-                # adjust epsilon by an exponential function with lower bound min_epsilon
-                self.epsilon = self.min_epsilon + (self.max_epsilon - self.min_epsilon) * np.exp(-self.decay_rate * episode)
+                state = next_state
+                total_rewards += reward
                 rewards.append(total_rewards)
 
+            self.learn_from_experience(memory=memories, batch_size=500)
+            # retrain the neural net
+            # predicted_next_state = self.model.predict(next_state)
+            # Qmax = np.max(predicted_next_state)
+            # y = predicted
+            #
+            # y[0][action] = reward + self.gamma * Qmax
+            # self.model.fit(x=state, y=y, verbose=0)
+
+            # adjust epsilon by an exponential function with lower bound min_epsilon
+            self.epsilon = self.min_epsilon + (self.max_epsilon - self.min_epsilon) * np.exp(-self.decay_rate * episode)
+
+
         print("Score over time: " + str(sum(rewards) / total_episodes))
+
+    def learn_from_experience(self, memory, batch_size):
+        sampled_memories = memory.sample(batch_size) # DataFrame
+        # next_state, reward, action, done, info, state
+        x = pd.DataFrame(sampled_memories.current_state.values.tolist()).values
+        sampled_memories['y'] = sampled_memories.as_matrix(columns=['reward']) + self.GAMMA * np.maximum(self.model.predict(x))
+        # x = np.array(sampled_memories.previous_state)
+        x = pd.DataFrame(sampled_memories.previous_state.values.tolist()).values
+        y = sampled_memories.as_matrix(columns=['y'])
+        self.model.fit(x, y, verbose=0)
 
 
     def play(self, episodes=1, repeat_play=False):
@@ -221,7 +239,8 @@ class Environment:
             time.sleep(self.framerate)
 
         state = np.dstack(stack)
-        return state[np.newaxis, ...]
+        # return state[np.newaxis, ...]
+        return state
 
     def step(self, action):
         """"
@@ -259,3 +278,23 @@ class Environment:
         :return: void
         """
         self.app.kill()
+
+
+class Memory:
+    def __init__(self, max_size):
+        # self.buffer = deque(maxlen= max_size)
+        self.max_size = max_size
+        self.buffer = pd.DataFrame(columns=['next_state', 'reward', 'action', 'done', 'info', 'state'])
+
+    def add(self, next_state, reward, action, done, info, state):
+        series = pd.Series([next_state, reward, action, done, info, state],
+                  index=['next_state', 'reward', 'action', 'done', 'info', 'state'])
+        self.buffer.append(series, ignore_index='True')
+        # pop first row if larger than max size
+        if len(self.buffer) > self.max_size:
+            self.buffer = self.buffer.iloc[1:]
+
+    def sample(self, batch_size):
+        buffer_size = len(self.buffer)
+        batch = self.buffer.sample(min(batch_size, buffer_size), replace=False)
+        return batch #returns DF
