@@ -53,6 +53,10 @@ class Agent:
                 # start to take actions it knows
                 predicted = self.model.predict(state[np.newaxis, ...])
                 action = np.argmax(predicted[0])
+                # if self.epsilon > 0.5:
+                #     action = 1
+                #     time.sleep(0.35 )
+
                 if np.random.uniform(low=0, high=1) < self.epsilon:
                     action = np.random.choice(self.env.action_space)
 
@@ -213,17 +217,26 @@ class Environment:
         # if np.sum(state[30:32, :, 3]) == 8415:
         #     print("in menu")
         #     return -100
+        # print(state.shape)
         if np.sum(state[:, 0:50, 3]) / 255 == 50:
-            print("buiten scherm")
-            return -100
-        elif (np.sum((state[:, :, 3] - state[:, :, 2])) == 0) or (np.sum((state[:, :, 2] - state[: ,: ,1])) == 0):
-            print("flappy is dood")
-            return -1000
-        elif sum(state[0, :50, 3]) == 510 and sum(state[0, :50, 2]) == 510 and sum(state[0, :50, 1]) != 510 and sum(state[0, :50, 0]) != 510:
-            print("punt gescoord!")
-            return 1000
+            print("out of screen")
+            return -10, False
+        elif (np.sum((state[:, :, 3] - state[:, :, 2])) == 0) or (np.sum((state[:, :, 2] - state[: ,: ,1])) == 0) \
+                or np.sum((state[:, :, 1] - state[:, :, 0])) == 0:
+            #if the frames have stopped moving it means flappy died
+            print("game over")
+            time.sleep(0.3)
+            return -100, True
+        elif (sum(state[0, :50, 3]) == 255 and sum(state[0, :50, 2]) == 255 and sum(state[0, :50, 1]) == 510 and sum(state[0, :50, 0]) == 510)\
+                or (sum(state[0, :50, 3]) == 255 and sum(state[0, :50, 2]) == 255 and sum(state[0, :50, 1]) == 255 and sum(state[0, :50, 0]) == 510):
+            print("SCORED A POINT!")
+            return 1000, False
         else:
-            return 1
+            # print('3', sum(state[0, :50, 3]))
+            # print('2', sum(state[0, :50, 2]))
+            # print('1', sum(state[0, :50, 1]))
+            # print('0', sum(state[0, :50, 0]))
+            return 1, False
 
     def _press_space(self):
         """"
@@ -274,11 +287,8 @@ class Environment:
             self._press_space()
 
         observation = self._stream()
-        reward = self._calculate_reward(observation)
-        done = False
+        reward, done = self._calculate_reward(observation)
         info = {}
-        if reward == -1000:
-            done = True
 
         if True:#show_processed_image:
             cv2.imshow('processed image', observation[:, :, 0])
