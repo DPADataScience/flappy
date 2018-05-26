@@ -44,6 +44,7 @@ class Agent:
         # memories for experience replay
         memories = Memory(max_size=30000)
         for episode in range(total_episodes):
+            print('playing episode ', episode, ' from total of ', total_episodes, ' with randomness at ', self.epsilon)
             state = self.env.reset()
             total_rewards = 0
             while True:
@@ -84,22 +85,21 @@ class Agent:
         #
         # y[0][action] = reward + self.gamma * Qmax
         # self.model.fit(x=state, y=y, verbose=0)
-        print("learning from experience")
-        print('size memories', memory.get_length())
-        sampled_memories = memory.sample(batch_size) # DataFrame
+        start = time.time()
+        print("learning from experience, size memories:", memory.get_length())
+        sampled_memories = memory.sample(batch_size) # returns a DataFrame
         # next_state, reward, action, done, info, state
         x = np.array(sampled_memories.state.values.tolist()) #unpack column
         predictions = self.model.predict(x)
-        print('predictions', predictions)
-        Qmax = np.max(predictions, axis=(1, 1)) # return array with right maximum here
-        print('qmax', Qmax)
-        mat = sampled_memories.as_matrix(columns=['reward'])
-        print('mat', mat)
-        sampled_memories['y'] = sampled_memories.as_matrix(columns=['reward']) + self.gamma * np.maximum(self.model.predict(x))
-
-        x = pd.DataFrame(sampled_memories.previous_state.values.tolist()).values
-        y = sampled_memories.as_matrix(columns=['y'])
+        Qmax = np.max(predictions, axis=1).reshape(len(predictions), 1) #  dont use reshape if you want shape (R, )
+        reward = sampled_memories.as_matrix(columns=['reward'])
+        target = reward + self.gamma * Qmax
+        target = target[:, 0] # make list
+        actions = sampled_memories['action'].values.astype('int64')
+        predictions[np.arange(predictions.shape[0]), actions] = target
+        y = predictions
         self.model.fit(x, y, verbose=0)
+        print('training took ', time.time()-start, ' ms')
 
 
     def play(self, episodes=1, repeat_play=False):
@@ -216,14 +216,14 @@ class Environment:
         if np.sum(state[:, 0:50, 3]) / 255 == 50:
             print("buiten scherm")
             return -100
-        elif np.sum((state[:, :, 3] - state[:, :, 2])) == 0 and np.sum((state[:, :, 2] - state[: ,: ,1])) == 0:
+        elif (np.sum((state[:, :, 3] - state[:, :, 2])) == 0) or (np.sum((state[:, :, 2] - state[: ,: ,1])) == 0):
             print("flappy is dood")
             return -1000
         elif sum(state[0, :50, 3]) == 510 and sum(state[0, :50, 2]) == 510 and sum(state[0, :50, 1]) != 510 and sum(state[0, :50, 0]) != 510:
             print("punt gescoord!")
             return 1000
         else:
-            return 0
+            return 1
 
     def _press_space(self):
         """"

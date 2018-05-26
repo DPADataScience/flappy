@@ -54,7 +54,7 @@ def main():
 
     agent = Agent(environment)
     if train:
-        agent.train(50)
+        agent.train(500)
     else:
         agent.play()
 
